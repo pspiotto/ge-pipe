@@ -19,3 +19,6 @@ RUN mkdir -p $DAGSTER_HOME
 COPY dagster.yaml $DAGSTER_HOME/dagster.yaml
 
 COPY . .
+
+# Install dbt packages (dbt_utils etc.) defined in dbt/packages.yml
+RUN cd dbt && dbt deps

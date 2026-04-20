@@ -38,7 +38,11 @@ Everything runs in Docker Compose. One command.
 
 ## Quickstart
 
-**Requires:** [Docker Desktop](https://docs.docker.com/desktop/) (Mac, Windows, Linux)
+**Requires:** [Docker Desktop](https://docs.docker.com/desktop/) — available for Mac, Windows, and Linux.
+
+> **First run:** the Docker image build takes 3–5 minutes (Python + dbt + Dagster). Subsequent starts are instant.
+
+### Mac / Linux
 
 ```bash
 git clone https://github.com/pspiotto/ge-pipe
@@ -47,21 +51,66 @@ cp .env.example .env
 make up
 ```
 
-Then open:
+### Windows
+
+`make` isn't available in PowerShell/cmd by default. Use **WSL2** (Docker Desktop installs it anyway — just open a WSL terminal) or run the Docker Compose commands directly in PowerShell:
+
+```powershell
+git clone https://github.com/pspiotto/ge-pipe
+cd ge-pipe
+copy .env.example .env          # or: cp .env.example .env in WSL
+docker compose up -d --build
+```
+
+> If you hit `"C:\ProgramData\DockerDesktop must be owned by an elevated account"` during Docker Desktop install: open an elevated PowerShell and run `rmdir /s /q C:\ProgramData\DockerDesktop`, then re-run the installer.
+
+### Once running
 
 | Service | URL |
 |---------|-----|
 | Dagster UI | http://localhost:3000 |
 | PostgreSQL | `localhost:5432` · db: `ge_pipe` · user: `gepipe` |
 
-On first run, Dagster will compile the dbt manifest automatically. Kick off the assets manually in the UI or wait for the schedules to fire.
+On first run, Dagster compiles the dbt manifest automatically. Kick off the assets manually in the UI or wait for the schedules to fire.
 
-> **Windows:** `make` isn't available in PowerShell/cmd by default. Either use WSL2 (recommended — Docker Desktop installs it anyway) or run the Docker Compose commands directly:
-> ```
-> docker compose up -d        # make up
-> docker compose logs -f      # make logs
-> docker compose down -v      # make fresh-start (add --build to rebuild)
-> ```
+---
+
+## Development
+
+### Mac / Linux (`make` commands)
+
+```bash
+make up           # start Postgres + Dagster (detached)
+make logs         # stream Dagster logs
+make dbt-run      # run dbt transformations manually
+make dbt-test     # run dbt tests
+make dbt-docs     # generate + serve dbt docs at localhost:8080
+make test         # alias for dbt-test
+make fresh-start  # wipe volumes, rebuild, restart
+```
+
+### Windows (Docker Compose equivalents)
+
+```powershell
+docker compose up -d             # make up
+docker compose logs -f dagster   # make logs
+docker compose exec dagster dbt run --project-dir /app/dbt   # make dbt-run
+docker compose exec dagster dbt test --project-dir /app/dbt  # make dbt-test
+docker compose down -v && docker compose up -d --build       # make fresh-start
+```
+
+### Connect to the database
+
+```bash
+psql "postgresql://gepipe:gepipe@localhost:5432/ge_pipe"
+```
+
+```sql
+-- What are the best flips right now?
+SELECT item_name, avg_low_price, avg_high_price, profit_per_item, max_profit_per_limit
+FROM marts.agg_flip_opportunities
+LIMIT 20;
+```
 
 ---
 
@@ -115,33 +164,6 @@ dbt tests run on every `dbt build`:
 - **Referential integrity** — `fct_prices` only contains items in `dim_items`
 - **Composite uniqueness** — `(item_id, price_timestamp)` in `fct_prices`
 - **Price sanity** — custom test: `avg_high_price >= avg_low_price` (inverted prices = bad data)
-
----
-
-## Development
-
-```bash
-make up           # start Postgres + Dagster (detached)
-make logs         # stream Dagster logs
-make dbt-run      # run dbt transformations manually
-make dbt-test     # run dbt tests
-make dbt-docs     # generate + serve dbt docs at localhost:8080
-make test         # alias for dbt-test
-make fresh-start  # wipe volumes, rebuild, restart
-```
-
-Connect directly to the database:
-
-```bash
-psql "postgresql://gepipe:gepipe@localhost:5432/ge_pipe"
-```
-
-```sql
--- What are the best flips right now?
-SELECT item_name, avg_low_price, avg_high_price, profit_per_item, max_profit_per_limit
-FROM marts.agg_flip_opportunities
-LIMIT 20;
-```
 
 ---
 

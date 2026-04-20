@@ -1,0 +1,32 @@
+version: 2
+
+models:
+  - name: dim_items
+    description: "Item dimension — one row per OSRS GE-tradeable item. Full refresh daily."
+    columns:
+      - name: item_id
+        description: "Unique OSRS item ID"
+        tests: [not_null, unique]
+      - name: item_name
+        tests: [not_null]
+
+  - name: fct_prices
+    description: "5-minute GE price fact table. Grain: one row per (item_id, price_timestamp)."
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns: [item_id, price_timestamp]
+    columns:
+      - name: item_id
+        tests: [not_null]
+      - name: price_timestamp
+        tests: [not_null]
+      - name: avg_high_price
+        description: "Average instant-buy price over the 5-minute window"
+      - name: avg_low_price
+        description: "Average instant-sell price over the 5-minute window"
+
+  - name: agg_flip_opportunities
+    description: >
+      Current best flip opportunities: items where (high - low - tax) > 0
+      with sufficient volume on both sides to actually execute the flip.
+      Refreshed on every dbt build.

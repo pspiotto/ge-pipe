@@ -1,0 +1,38 @@
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-gepipe}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-gepipe}
+      POSTGRES_DB: ${POSTGRES_DB:-ge_pipe}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./init_db:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-gepipe}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  dagster:
+    build: .
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER:-gepipe}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-gepipe}
+      POSTGRES_DB: ${POSTGRES_DB:-ge_pipe}
+      DAGSTER_HOME: /app/.dagster
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: dagster dev -h 0.0.0.0 -p 3000 -w /app/workspace.yaml
+
+volumes:
+  pg_data:

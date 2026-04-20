@@ -1,0 +1,27 @@
+version: 2
+
+sources:
+  - name: raw
+    schema: raw
+    description: "Raw tables loaded directly from the OSRS Wiki prices API"
+    tables:
+      - name: item_mapping
+        description: "Item ID to metadata mapping from /mapping. Full refresh daily."
+        columns:
+          - name: item_id
+            description: "Unique OSRS item ID"
+            tests: [not_null, unique]
+          - name: name
+            tests: [not_null]
+
+      - name: prices_5m
+        description: "5-minute average GE prices for all tradeable items. ~25k rows per tick."
+        freshness:
+          warn_after: {count: 15, period: minute}
+          error_after: {count: 60, period: minute}
+        loaded_at_field: loaded_at
+        columns:
+          - name: item_id
+            tests: [not_null]
+          - name: timestamp
+            tests: [not_null]

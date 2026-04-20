@@ -38,7 +38,7 @@ Everything runs in Docker Compose. One command.
 
 ## Quickstart
 
-**Requires:** Docker, Docker Compose
+**Requires:** [Docker Desktop](https://docs.docker.com/desktop/) (Mac, Windows, Linux)
 
 ```bash
 git clone https://github.com/pspiotto/ge-pipe
@@ -55,6 +55,13 @@ Then open:
 | PostgreSQL | `localhost:5432` · db: `ge_pipe` · user: `gepipe` |
 
 On first run, Dagster will compile the dbt manifest automatically. Kick off the assets manually in the UI or wait for the schedules to fire.
+
+> **Windows:** `make` isn't available in PowerShell/cmd by default. Either use WSL2 (recommended — Docker Desktop installs it anyway) or run the Docker Compose commands directly:
+> ```
+> docker compose up -d        # make up
+> docker compose logs -f      # make logs
+> docker compose down -v      # make fresh-start (add --build to rebuild)
+> ```
 
 ---
 

@@ -13,7 +13,7 @@ dependencies = [
     "pydantic-settings>=2.0",
     "dagster>=1.7",
     "dagster-webserver>=1.7",
-    "dagster-dbt>=1.7",
+    "dagster-dbt>=0.13",
     "dbt-postgres>=1.8",
 ]
 

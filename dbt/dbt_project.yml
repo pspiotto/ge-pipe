@@ -18,3 +18,8 @@ models:
     marts:
       +schema: marts
       +materialized: table
+
+tests:
+  ge_pipe:
+    assert_price_high_gte_low:
+      +severity: warn

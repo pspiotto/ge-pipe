@@ -11,7 +11,7 @@ from dagster_dbt import DbtCliResource, DbtProject, dbt_assets
 from ge_pipe.dagster_defs.assets import raw_item_mapping, raw_prices_5m
 
 DBT_PROJECT_DIR = Path(__file__).parent.parent.parent / "dbt"
-dbt_project = DbtProject(project_dir=DBT_PROJECT_DIR, prepare_if_dev=True)
+dbt_project = DbtProject(project_dir=DBT_PROJECT_DIR, prepare_project_cli_args=["parse"])
 
 
 @dbt_assets(manifest=dbt_project.manifest_path)

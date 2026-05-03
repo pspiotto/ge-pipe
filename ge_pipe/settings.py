@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     postgres_db: str = "ge_pipe"
 
     osrs_user_agent: str = "ge-pipe/1.0 (github.com/pspiotto/ge-pipe)"
-    osrs_base_url: str = "https://prices.runescape.wiki/api/v1"
+    osrs_base_url: str = "https://prices.runescape.wiki/api/v1/osrs"
 
     @property
     def postgres_dsn(self) -> str:

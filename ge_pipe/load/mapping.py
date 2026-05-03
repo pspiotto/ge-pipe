@@ -31,7 +31,21 @@ def load_item_mapping(records: list[dict[str, Any]]) -> int:
     """
 
     now = datetime.now(timezone.utc)
-    rows = [{**r, "loaded_at": now} for r in records]
+    rows = [
+        {
+            "id": r["id"],
+            "name": r["name"],
+            "examine": r.get("examine"),
+            "members": r.get("members"),
+            "lowalch": r.get("lowalch"),
+            "highalch": r.get("highalch"),
+            "limit": r.get("limit"),
+            "value": r.get("value"),
+            "icon": r.get("icon"),
+            "loaded_at": now,
+        }
+        for r in records
+    ]
 
     with get_conn() as conn:
         with conn.cursor() as cur:

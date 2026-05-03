@@ -8,7 +8,7 @@ from dagster import (
 )
 from dagster_dbt import DbtCliResource, DbtProject, dbt_assets
 
-from ge_pipe.dagster_defs.assets import raw_item_mapping, raw_prices_5m
+from ge_pipe.dagster_defs.assets import item_mapping, prices_5m
 
 DBT_PROJECT_DIR = Path(__file__).parent.parent.parent / "dbt"
 dbt_project = DbtProject(project_dir=DBT_PROJECT_DIR, prepare_project_cli_args=["parse"])
@@ -23,13 +23,12 @@ def ge_pipe_dbt_assets(context, dbt: DbtCliResource):
 prices_5m_job = define_asset_job(
     "prices_5m_job",
     # Load raw prices then immediately rebuild all downstream dbt marts
-    selection=AssetSelection.assets(raw_prices_5m).downstream(include_self=True),
+    selection=AssetSelection.assets(prices_5m).downstream(include_self=True),
 )
 
 daily_job = define_asset_job(
     "daily_job",
-    # raw_item_mapping first, then dbt build across all transformed assets
-    selection=AssetSelection.assets(raw_item_mapping) | AssetSelection.all(),
+    selection=AssetSelection.assets(item_mapping).downstream(include_self=True),
 )
 
 # Schedules
@@ -46,7 +45,7 @@ daily_schedule = ScheduleDefinition(
 )
 
 defs = Definitions(
-    assets=[raw_item_mapping, raw_prices_5m, ge_pipe_dbt_assets],
+    assets=[item_mapping, prices_5m, ge_pipe_dbt_assets],
     resources={
         "dbt": DbtCliResource(project_dir=dbt_project),
     },

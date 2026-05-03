@@ -23,7 +23,7 @@ def ge_pipe_dbt_assets(context, dbt: DbtCliResource):
 prices_5m_job = define_asset_job(
     "prices_5m_job",
     # Load raw prices then immediately rebuild all downstream dbt marts
-    selection=AssetSelection.assets(raw_prices_5m) | AssetSelection.downstream_of("raw_prices_5m"),
+    selection=AssetSelection.assets(raw_prices_5m).downstream(include_self=True),
 )
 
 daily_job = define_asset_job(

@@ -37,3 +37,15 @@ sources:
             tests: [not_null]
           - name: loaded_at
             tests: [not_null]
+
+      - name: prices_1h
+        description: "1-hour average GE prices/volume for all tradeable items, polled hourly. Source of hourly volume."
+        freshness:
+          warn_after: {count: 90, period: minute}
+          error_after: {count: 180, period: minute}
+        loaded_at_field: loaded_at
+        columns:
+          - name: item_id
+            tests: [not_null]
+          - name: timestamp
+            tests: [not_null]

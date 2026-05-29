@@ -15,6 +15,7 @@ OSRS Wiki API
      │
      │  /mapping (daily)
      │  /5m      (every 5 min — volume)
+     │  /1h      (hourly — liquidity)
      │  /latest  (every 1 min — real-time prices)
      ▼
 Python Extractors ──► PostgreSQL (raw schema)
@@ -139,6 +140,7 @@ Loaded directly by Python — no transforms, no opinions.
 |-------|--------|-------|---------|
 | `item_mapping` | `/mapping` | 1 row per item | Daily full refresh |
 | `prices_5m` | `/5m` | 1 row per item per 5-min window | Every 5 minutes |
+| `prices_1h` | `/1h` | 1 row per item per 1-hour window | Hourly |
 | `prices_latest` | `/latest` | 1 row per item per price change | Every 1 minute (appended on change) |
 
 ### Staging (`stg` schema)
@@ -148,6 +150,7 @@ Views over raw — type-cast, renamed, lightly cleaned. No business logic.
 - `stg_item_mapping` — renamed columns, null semantics
 - `stg_prices_5m` — adds `spread_gp`, `spread_pct` derived columns; drops fully-null rows
 - `stg_prices_latest` — same derived columns over the real-time `/latest` feed
+- `stg_prices_1h` — adds `total_volume` (high + low) over the hourly `/1h` feed
 
 ### Marts (`marts` schema)
 
@@ -157,7 +160,8 @@ Query these. `dim_items` and `fct_prices` are tables; `agg_flip_opportunities` i
 |-------|-----------------|-------------|
 | `dim_items` | table | Item dimension — name, members flag, alch values, buy limit, `is_tax_exempt` |
 | `fct_prices` | table | Star schema fact — 5-minute price snapshots joined to dim_items |
-| `agg_flip_opportunities` | view | Current best flips: **real-time** (`/latest`) prices for the spread, gated on recent 5-minute volume. Spread > GE tax, sufficient volume on both sides. |
+| `agg_item_liquidity` | table | Per-item hourly liquidity (from `/1h`): `volume_per_hour`, rolling `avg_volume_per_hour_24h`. Refreshed hourly. |
+| `agg_flip_opportunities` | view | Current best flips: **real-time** (`/latest`) prices for the spread, gated on recent 5-minute volume. Now also carries `volume_per_hour`, `avg_volume_per_hour_24h`, and `est_hours_to_fill_limit` (time-to-fill). |
 
 **GE tax:** 2% of the sale (high) price, capped at 5,000,000 gp. Items are untaxed when intrinsically exempt (tools/bonds — see the `tax_exempt_items` seed) or when they sell for ≤ 50 gp. The exempt list is maintained in `dbt/seeds/tax_exempt_items.csv` — **verify it against the current [OSRS Wiki GE tax page](https://oldschool.runescape.wiki/w/Grand_Exchange#Tax)**, since exemptions can change with game updates.
 
@@ -169,6 +173,7 @@ Query these. `dim_items` and `fct_prices` are tables; `agg_flip_opportunities` i
 |----------|---------|--------------|
 | `prices_latest_schedule` | Every 1 min | Extract + load `/latest`, then refresh `stg_prices_latest` + `agg_flip_opportunities` |
 | `prices_5m_schedule` | Every 5 min | Extract + load `/5m` (volume), refresh `fct_prices` |
+| `prices_1h_schedule` | Hourly (:02) | Extract + load `/1h`, refresh `agg_item_liquidity` |
 | `daily_schedule` | 01:00 UTC | Full refresh: `/mapping` + `dbt build` |
 
 > Runs are serialized (`max_concurrent_runs: 1`) so the per-minute and per-5-minute jobs never rebuild the shared flip mart at the same time.
@@ -179,7 +184,7 @@ Query these. `dim_items` and `fct_prices` are tables; `agg_flip_opportunities` i
 
 dbt tests run on every `dbt build`:
 
-- **Source freshness** — errors if `raw.prices_5m` is 60+ min stale, or `raw.prices_latest` is 30+ min stale
+- **Source freshness** — errors if `raw.prices_5m` is 60+ min stale, `raw.prices_latest` is 30+ min stale, or `raw.prices_1h` is 180+ min stale
 - **not_null / unique** — on all primary keys and required fields
 - **Referential integrity** — `fct_prices` only contains items in `dim_items`
 - **Composite uniqueness** — `(item_id, price_timestamp)` in `fct_prices`

@@ -151,13 +151,13 @@ Views over raw — type-cast, renamed, lightly cleaned. No business logic.
 
 ### Marts (`marts` schema)
 
-Materialized tables. Query these.
+Query these. `dim_items` and `fct_prices` are tables; `agg_flip_opportunities` is a view (rebuilt every minute and read continuously, so a view avoids per-minute table-rebuild lock contention).
 
-| Model | Description |
-|-------|-------------|
-| `dim_items` | Item dimension — name, members flag, alch values, buy limit |
-| `fct_prices` | Star schema fact — 5-minute price snapshots joined to dim_items |
-| `agg_flip_opportunities` | Current best flips: **real-time** (`/latest`) prices for the spread, gated on recent 5-minute volume. Spread > GE tax, sufficient volume on both sides. |
+| Model | Materialization | Description |
+|-------|-----------------|-------------|
+| `dim_items` | table | Item dimension — name, members flag, alch values, buy limit |
+| `fct_prices` | table | Star schema fact — 5-minute price snapshots joined to dim_items |
+| `agg_flip_opportunities` | view | Current best flips: **real-time** (`/latest`) prices for the spread, gated on recent 5-minute volume. Spread > GE tax, sufficient volume on both sides. |
 
 ---
 

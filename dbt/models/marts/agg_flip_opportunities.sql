@@ -8,6 +8,13 @@
 -- (refreshed every minute), while trade *volume* comes from the most recent
 -- 5-minute window (/5m is the only endpoint that reports volume). This keeps
 -- the spread minute-fresh while still gating on real liquidity.
+--
+-- Materialized as a VIEW: it's rebuilt every minute and read continuously by
+-- downstream consumers. A table rebuild would need an ACCESS EXCLUSIVE lock each
+-- minute, which contends with readers and can stall (and back up the run queue).
+-- A view always reflects the latest stg_prices_latest with no rebuild lock; the
+-- computation is cheap on this data size.
+{{ config(materialized='view') }}
 
 with current_price as (
     -- Most recent real-time price per item

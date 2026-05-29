@@ -29,9 +29,11 @@ cleaned as (
             then round(filled_qty::numeric / requested_qty, 4)
         end                                                     as fill_ratio,
 
-        -- per-unit slippage vs the listed price (signed). For a sell leg a
-        -- negative value means you got less than listed; for a buy leg a negative
-        -- value means you paid less than offered (favourable). Interpret by leg.
+        -- per-unit slippage vs the listed price. Effectively a BUY-side signal:
+        -- buys record actual gp spent / qty, so a negative value means you paid
+        -- below your bid (favourable). Sells fill at the listed ask, so this is
+        -- ~0 on sells by construction — the sell-side outcome lives in
+        -- realized_profit, not here.
         case
             when avg_fill_price is not null and offer_price is not null
             then avg_fill_price - offer_price
@@ -45,7 +47,8 @@ cleaned as (
 
         (event = 'filled')                                      as is_filled,
         (event = 'partial')                                     as is_partial,
-        (event in ('cancelled_deadline', 'cancelled_pricemove')) as is_cancelled
+        (event in ('cancelled_deadline', 'cancelled_pricemove', 'cancelled_manual'))
+                                                                as is_cancelled
 
     from source
 )

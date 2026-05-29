@@ -107,7 +107,7 @@ models:
       - name: fill_ratio
         description: "filled_qty / requested_qty."
       - name: slippage_gp
-        description: "Per-unit avg_fill_price - offer_price (signed; interpret by leg)."
+        description: "Per-unit avg_fill_price - offer_price. Buy-side signal (sells fill at the listed ask, so ~0 on sells); sell outcome is in realized_profit."
       - name: time_to_fill_hours
         description: "Actual fill time — compare against agg_flip_opportunities.est_hours_to_fill_limit."
       - name: realized_profit

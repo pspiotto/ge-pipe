@@ -63,11 +63,11 @@ try (PreparedStatement ps = writeConn.prepareStatement(INSERT_SQL)) {
 | `leg` | text, **required** | `buy` or `sell` (exact strings). |
 | `item_id` | int, **required** | OSRS item id. |
 | `bot_version` | text | e.g. `v1.2` — lets us segment metrics by bot build. |
-| `event` | text, **required** | One of `filled`, `partial`, `cancelled_deadline`, `cancelled_pricemove`. |
+| `event` | text, **required** | One of `filled`, `partial`, `cancelled_deadline`, `cancelled_pricemove`, `cancelled_manual`. |
 | `requested_qty` | int | Offer quantity. |
-| `filled_qty` | int | `getTransferredAmount()`. |
+| `filled_qty` | int | `getTransferredAmount()`. On a partial-then-cancelled leg, send the filled portion (> 0) with the `cancelled_*` event and `filled_at = null`. |
 | `offer_price` | int | Listed price per item. |
-| `avg_fill_price` | numeric | `getTransferredValue() / filled_qty` (per-unit actual). Null if nothing filled. |
+| `avg_fill_price` | numeric | Buys: `getTransferredValue() / filled_qty` (captures fills below your bid). Sells: the listed ask (the GE fills sells at your price), consistent with how `tax_paid`/`realized_profit` are computed. Null if nothing filled. |
 | `tax_paid` | int | Sells only (closing leg); null otherwise. |
 | `realized_profit` | bigint | Sells only: proceeds − cost − tax. Null otherwise. |
 | `offer_placed_at` | timestamptz | When the offer was listed (UTC). |
@@ -81,7 +81,7 @@ try (PreparedStatement ps = writeConn.prepareStatement(INSERT_SQL)) {
 ## Enum values (exact)
 
 - `leg`: `buy`, `sell`
-- `event`: `filled`, `partial`, `cancelled_deadline`, `cancelled_pricemove`
+- `event`: `filled`, `partial`, `cancelled_deadline`, `cancelled_pricemove`, `cancelled_manual`
 
 These are validated by dbt `accepted_values` tests, **not** a DB `CHECK` — a typo
 won't reject the insert, it'll silently land and then fail a data-quality test. So
@@ -95,7 +95,17 @@ One row per event, hooked into the existing lifecycle:
 - partial-fill detection → `event = partial` (with `filled_qty < requested_qty`).
 - `cancelBuy` / `cancelSell` on deadline → `event = cancelled_deadline`.
 - `cancelBuy` / `cancelSell` on adverse price move → `event = cancelled_pricemove`.
+- forced/manual cancel not tied to deadline or price move (e.g. a buy cancelled by
+  a sell-only wind-down) → `event = cancelled_manual`. Keep these out of
+  `cancelled_deadline` so the deadline-cancel rate stays a clean cadence signal.
 - `reconcile` → emit the terminal event observed for the leg.
+
+A leg that partially filled and was then cancelled is reported as the `cancelled_*`
+event with `filled_qty > 0` and `filled_at = null`; for sells, `tax_paid` /
+`realized_profit` reflect only the filled portion. Downstream, `fill_ratio`
+(filled/requested) is the source of truth for how much filled — not the event
+string. Note `slippage_gp` is a **buy-side** measure: sells fill at the listed ask,
+so it's ~0 on sells by construction; the sell-side outcome is in `realized_profit`.
 
 ## Conventions
 

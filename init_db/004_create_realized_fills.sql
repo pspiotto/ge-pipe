@@ -10,7 +10,7 @@
 -- Field          Source
 -- flip_id, leg   groups both legs (buy|sell) of a round-trip
 -- item_id, bot_version
--- event          filled | partial | cancelled_deadline | cancelled_pricemove
+-- event          filled | partial | cancelled_deadline | cancelled_pricemove | cancelled_manual
 -- requested_qty, filled_qty   offer vs getTransferredAmount()
 -- offer_price, avg_fill_price listed vs actual getTransferredValue()/qty (slippage)
 -- tax_paid, realized_profit   sells; proceeds - cost - tax on the closing leg
@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS raw.realized_fills (
     leg             TEXT        NOT NULL,   -- buy | sell
     item_id         INTEGER     NOT NULL,
     bot_version     TEXT,
-    event           TEXT        NOT NULL,   -- filled | partial | cancelled_deadline | cancelled_pricemove
+    event           TEXT        NOT NULL,   -- filled | partial | cancelled_{deadline,pricemove,manual}
     requested_qty   INTEGER,
     filled_qty      INTEGER,
     offer_price     INTEGER,

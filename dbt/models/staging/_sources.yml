@@ -66,4 +66,4 @@ sources:
             tests:
               - not_null
               - accepted_values:
-                  values: ['filled', 'partial', 'cancelled_deadline', 'cancelled_pricemove']
+                  values: ['filled', 'partial', 'cancelled_deadline', 'cancelled_pricemove', 'cancelled_manual']

@@ -7,5 +7,18 @@ run_coordinator:
   config:
     max_concurrent_runs: 1
 
+# With max_concurrent_runs: 1, a single wedged run blocks every other run. A run
+# orphaned by a dagster restart/crash (its worker process dies but the run record
+# stays STARTED) would otherwise hold the slot forever and back up the queue.
+# Run monitoring reaps such runs: it detects a STARTED run whose worker is gone
+# and marks it failed (no resume — stale price refreshes are worthless; the next
+# scheduled tick produces fresh data), freeing the slot. It also fails runs stuck
+# in STARTING past start_timeout_seconds.
+run_monitoring:
+  enabled: true
+  poll_interval_seconds: 60
+  start_timeout_seconds: 300
+  max_resume_run_attempts: 0
+
 telemetry:
   enabled: false

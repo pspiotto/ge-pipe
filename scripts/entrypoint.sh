@@ -17,8 +17,11 @@ fi
 
 # 2. dbt packages (dbt_utils etc.) and 3. compiled manifest.json — the dbt code
 # location fails to load without manifest.json present at import time.
+# Also load seeds (e.g. tax_exempt_items) so models that ref them can build even
+# when the first scheduled job is a selective (non-seed) build.
 cd /app/dbt
 dbt deps
+dbt seed --profiles-dir /app/dbt
 dbt parse --profiles-dir /app/dbt
 cd /app
 

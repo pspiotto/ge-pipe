@@ -9,6 +9,9 @@ models:
         tests: [not_null, unique]
       - name: item_name
         tests: [not_null]
+      - name: is_tax_exempt
+        description: "Intrinsically GE-tax-exempt item (tools, bonds) per the tax_exempt_items seed. Does NOT include the price-dependent <=50gp rule."
+        tests: [not_null]
 
   - name: fct_prices
     description: "5-minute GE price fact table. Grain: one row per (item_id, price_timestamp)."
@@ -45,3 +48,7 @@ models:
         description: "Sell-side volume from the most recent 5-minute window"
       - name: price_updated_at
         description: "When the real-time price snapshot was loaded"
+      - name: tax_gp
+        description: "GE tax on the sale: 2% of high_price capped at 5,000,000 gp; 0 when is_tax_exempt or high_price <= 50."
+      - name: is_tax_exempt
+        description: "Whether the item is intrinsically GE-tax-exempt (from dim_items)."

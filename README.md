@@ -73,6 +73,18 @@ docker compose up -d --build
 
 On first run, Dagster compiles the dbt manifest automatically. Kick off the assets manually in the UI or wait for the schedules to fire.
 
+### Troubleshooting
+
+**Port 5432 already allocated.** Another Postgres (or container) on the host is using `5432`. Either stop it, or publish ge-pipe's Postgres on a different host port by setting `POSTGRES_PORT=5433` in `.env` (internal Docker networking is unaffected — only host-side `psql` moves to the new port).
+
+**Postgres can't be reached / a container won't attach to the network.** If a previous failed start left a container half-created, recreate cleanly:
+
+```bash
+docker compose up -d --force-recreate
+```
+
+The `pg_data` volume persists, so your schemas and data are kept.
+
 ---
 
 ## Development
@@ -173,7 +185,7 @@ Copy `.env.example` to `.env` and override as needed:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `POSTGRES_HOST` | `localhost` | Postgres host (use `postgres` inside Docker) |
+| `POSTGRES_HOST` | `postgres` | Postgres host — the compose service name inside Docker. Use `localhost` only for host-side connections. |
 | `POSTGRES_PORT` | `5432` | Postgres port |
 | `POSTGRES_USER` | `gepipe` | Postgres username |
 | `POSTGRES_PASSWORD` | `gepipe` | Postgres password |

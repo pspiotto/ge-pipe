@@ -72,3 +72,24 @@ models:
         description: "Rolling average hourly volume over the trailing 24h."
       - name: hours_observed_24h
         description: "Number of hourly buckets backing the 24h average (warm-up indicator, ramps to 24)."
+
+  - name: realized_fills
+    description: >
+      Bot trade outcomes (fill/cancel events) — the feedback loop. Grain: one row
+      per event. Enables realized-vs-predicted profit, actual time-to-fill vs
+      est_hours_to_fill_limit, slippage, and fill/cancel rates by cadence.
+    columns:
+      - name: event_id
+        tests: [not_null, unique]
+      - name: flip_id
+        tests: [not_null]
+      - name: item_id
+        tests: [not_null]
+      - name: fill_ratio
+        description: "filled_qty / requested_qty."
+      - name: slippage_gp
+        description: "Per-unit avg_fill_price - offer_price (signed; interpret by leg)."
+      - name: time_to_fill_hours
+        description: "Actual fill time — compare against agg_flip_opportunities.est_hours_to_fill_limit."
+      - name: realized_profit
+        description: "Realized profit on the closing (sell) leg: proceeds - cost - tax."

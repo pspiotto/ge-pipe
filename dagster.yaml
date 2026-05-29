@@ -1,16 +1,22 @@
-# Serialize runs so the every-minute prices_latest_job and the every-5-minute
-# prices_5m_job never rebuild the shared agg_flip_opportunities mart at the same
-# time (concurrent dbt builds of the same table would conflict).
+# Two concurrent run slots. A single slot meant one wedged/slow run blocked every
+# other run (e.g. the every-minute prices_latest_job stalling behind the daily or
+# 5-minute job). Two slots keep the per-minute flip refresh flowing even when a
+# slower job is running. Safe now that:
+#   - agg_flip_opportunities is a VIEW (instant CREATE OR REPLACE, no data-copy
+#     lock), so concurrent jobs that both refresh it don't fight over a rebuild;
+#   - the marts tables (fct_prices, dim_items, agg_item_liquidity) carry a
+#     lock_timeout pre-hook, so if two builds ever contend they fail fast + retry;
+#   - each dbt run writes to its own target/ subdir, so builds don't clash on disk.
 run_coordinator:
   module: dagster.core.run_coordinator
   class: QueuedRunCoordinator
   config:
-    max_concurrent_runs: 1
+    max_concurrent_runs: 2
 
-# With max_concurrent_runs: 1, a single wedged run blocks every other run. A run
-# orphaned by a dagster restart/crash (its worker process dies but the run record
-# stays STARTED) would otherwise hold the slot forever and back up the queue.
-# Run monitoring reaps such runs: it detects a STARTED run whose worker is gone
+# A run orphaned by a dagster restart/crash (its worker process dies but the run
+# record stays STARTED) would otherwise hold a slot forever and back up the queue
+# (this caused a multi-hour overnight wedge). Run monitoring reaps such runs:
+# it detects a STARTED run whose worker is gone
 # and marks it failed (no resume — stale price refreshes are worthless; the next
 # scheduled tick produces fresh data), freeing the slot. It also fails runs stuck
 # in STARTING past start_timeout_seconds.

@@ -176,7 +176,7 @@ Query these. `dim_items` and `fct_prices` are tables; `agg_flip_opportunities` i
 | `prices_1h_schedule` | Hourly (:02) | Extract + load `/1h`, refresh `agg_item_liquidity` |
 | `daily_schedule` | 01:00 UTC | Full refresh: `/mapping` + `dbt build` |
 
-> Runs are serialized (`max_concurrent_runs: 1`) so the per-minute and per-5-minute jobs never rebuild the shared flip mart at the same time.
+> The queue runs up to 2 concurrent slots (`max_concurrent_runs: 2`) so the per-minute flip refresh keeps flowing even while a slower job runs. Orphaned/stuck runs are reaped by Dagster `run_monitoring`, and marts table rebuilds carry a `lock_timeout` so they fail fast rather than wedge the queue.
 
 ---
 

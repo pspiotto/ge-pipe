@@ -14,7 +14,8 @@ Built because I wanted an end-to-end DE project I'd actually use, and because wa
 OSRS Wiki API
      │
      │  /mapping (daily)
-     │  /5m      (every 5 min)
+     │  /5m      (every 5 min — volume)
+     │  /latest  (every 1 min — real-time prices)
      ▼
 Python Extractors ──► PostgreSQL (raw schema)
                               │
@@ -119,7 +120,7 @@ psql "postgresql://gepipe:gepipe@localhost:5432/ge_pipe"
 
 ```sql
 -- What are the best flips right now?
-SELECT item_name, avg_low_price, avg_high_price, profit_per_item, max_profit_per_limit
+SELECT item_name, low_price, high_price, profit_per_item, max_profit_per_limit
 FROM marts.agg_flip_opportunities
 LIMIT 20;
 ```
@@ -138,6 +139,7 @@ Loaded directly by Python — no transforms, no opinions.
 |-------|--------|-------|---------|
 | `item_mapping` | `/mapping` | 1 row per item | Daily full refresh |
 | `prices_5m` | `/5m` | 1 row per item per 5-min window | Every 5 minutes |
+| `prices_latest` | `/latest` | 1 row per item per price change | Every 1 minute (appended on change) |
 
 ### Staging (`stg` schema)
 
@@ -145,6 +147,7 @@ Views over raw — type-cast, renamed, lightly cleaned. No business logic.
 
 - `stg_item_mapping` — renamed columns, null semantics
 - `stg_prices_5m` — adds `spread_gp`, `spread_pct` derived columns; drops fully-null rows
+- `stg_prices_latest` — same derived columns over the real-time `/latest` feed
 
 ### Marts (`marts` schema)
 
@@ -153,8 +156,8 @@ Materialized tables. Query these.
 | Model | Description |
 |-------|-------------|
 | `dim_items` | Item dimension — name, members flag, alch values, buy limit |
-| `fct_prices` | Star schema fact — price snapshots joined to dim_items |
-| `agg_flip_opportunities` | Current best flips: spread > GE tax, sufficient volume on both sides |
+| `fct_prices` | Star schema fact — 5-minute price snapshots joined to dim_items |
+| `agg_flip_opportunities` | Current best flips: **real-time** (`/latest`) prices for the spread, gated on recent 5-minute volume. Spread > GE tax, sufficient volume on both sides. |
 
 ---
 
@@ -162,8 +165,11 @@ Materialized tables. Query these.
 
 | Schedule | Cadence | What it runs |
 |----------|---------|--------------|
-| `prices_5m_schedule` | Every 5 min | Extract + load `/5m` |
+| `prices_latest_schedule` | Every 1 min | Extract + load `/latest`, then refresh `stg_prices_latest` + `agg_flip_opportunities` |
+| `prices_5m_schedule` | Every 5 min | Extract + load `/5m` (volume), refresh `fct_prices` |
 | `daily_schedule` | 01:00 UTC | Full refresh: `/mapping` + `dbt build` |
+
+> Runs are serialized (`max_concurrent_runs: 1`) so the per-minute and per-5-minute jobs never rebuild the shared flip mart at the same time.
 
 ---
 
@@ -171,7 +177,7 @@ Materialized tables. Query these.
 
 dbt tests run on every `dbt build`:
 
-- **Source freshness** — errors if `raw.prices_5m` hasn't been updated in 60+ minutes
+- **Source freshness** — errors if `raw.prices_5m` is 60+ min stale, or `raw.prices_latest` is 30+ min stale
 - **not_null / unique** — on all primary keys and required fields
 - **Referential integrity** — `fct_prices` only contains items in `dim_items`
 - **Composite uniqueness** — `(item_id, price_timestamp)` in `fct_prices`
@@ -197,7 +203,7 @@ Copy `.env.example` to `.env` and override as needed:
 
 | Layer | Tool | Why |
 |-------|------|-----|
-| Extract / Load | Python + httpx | Async, typed, no Airbyte overhead for 2 endpoints |
+| Extract / Load | Python + httpx | Async, typed, no Airbyte overhead for a handful of endpoints |
 | Warehouse | PostgreSQL 16 | Runs anywhere. Real warehouse patterns without a cloud account. |
 | Transform | dbt-core (postgres) | Industry standard. Models are SQL you can actually read. |
 | Orchestration | Dagster | Asset-based lineage, modern scheduler, better portfolio signal than an Airflow DAG. |

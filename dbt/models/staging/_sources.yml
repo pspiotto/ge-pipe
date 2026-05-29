@@ -15,7 +15,7 @@ sources:
             tests: [not_null]
 
       - name: prices_5m
-        description: "5-minute average GE prices for all tradeable items. ~25k rows per tick."
+        description: "5-minute average GE prices for all tradeable items. ~25k rows per tick. Source of trade volume."
         freshness:
           warn_after: {count: 15, period: minute}
           error_after: {count: 60, period: minute}
@@ -24,4 +24,16 @@ sources:
           - name: item_id
             tests: [not_null]
           - name: timestamp
+            tests: [not_null]
+
+      - name: prices_latest
+        description: "Real-time last-traded GE prices from /latest, polled every minute. Appended only on price change. No volume."
+        freshness:
+          warn_after: {count: 5, period: minute}
+          error_after: {count: 30, period: minute}
+        loaded_at_field: loaded_at
+        columns:
+          - name: item_id
+            tests: [not_null]
+          - name: loaded_at
             tests: [not_null]

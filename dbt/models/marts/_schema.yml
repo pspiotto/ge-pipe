@@ -29,4 +29,19 @@ models:
     description: >
       Current best flip opportunities: items where (high - low - tax) > 0
       with sufficient volume on both sides to actually execute the flip.
-      Refreshed on every dbt build.
+      Hybrid freshness — prices from the real-time /latest feed (refreshed every
+      minute), volume from the most recent 5-minute window. Grain: one row per
+      qualifying item.
+    columns:
+      - name: item_id
+        tests: [not_null, unique]
+      - name: high_price
+        description: "Real-time instant-buy price (from /latest)"
+      - name: low_price
+        description: "Real-time instant-sell price (from /latest)"
+      - name: high_price_volume
+        description: "Buy-side volume from the most recent 5-minute window"
+      - name: low_price_volume
+        description: "Sell-side volume from the most recent 5-minute window"
+      - name: price_updated_at
+        description: "When the real-time price snapshot was loaded"

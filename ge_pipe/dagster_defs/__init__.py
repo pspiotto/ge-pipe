@@ -8,7 +8,7 @@ from dagster import (
 )
 from dagster_dbt import DbtCliResource, DbtProject, dbt_assets
 
-from ge_pipe.dagster_defs.assets import item_mapping, prices_5m
+from ge_pipe.dagster_defs.assets import item_mapping, prices_5m, prices_latest
 
 DBT_PROJECT_DIR = Path(__file__).parent.parent.parent / "dbt"
 dbt_project = DbtProject(project_dir=DBT_PROJECT_DIR, prepare_project_cli_args=["parse"])
@@ -31,11 +31,25 @@ daily_job = define_asset_job(
     selection=AssetSelection.assets(item_mapping).downstream(include_self=True),
 )
 
+prices_latest_job = define_asset_job(
+    "prices_latest_job",
+    # Load real-time prices then refresh only the downstream dbt models that
+    # depend on them (stg_prices_latest + agg_flip_opportunities) — not the
+    # whole project. fct_prices/dim_items are reused as-is.
+    selection=AssetSelection.assets(prices_latest).downstream(include_self=True),
+)
+
 # Schedules
 prices_5m_schedule = ScheduleDefinition(
     name="prices_5m_schedule",
     job=prices_5m_job,
     cron_schedule="*/5 * * * *",
+)
+
+prices_latest_schedule = ScheduleDefinition(
+    name="prices_latest_schedule",
+    job=prices_latest_job,
+    cron_schedule="* * * * *",  # every minute
 )
 
 daily_schedule = ScheduleDefinition(
@@ -45,9 +59,9 @@ daily_schedule = ScheduleDefinition(
 )
 
 defs = Definitions(
-    assets=[item_mapping, prices_5m, ge_pipe_dbt_assets],
+    assets=[item_mapping, prices_5m, prices_latest, ge_pipe_dbt_assets],
     resources={
         "dbt": DbtCliResource(project_dir=dbt_project),
     },
-    schedules=[prices_5m_schedule, daily_schedule],
+    schedules=[prices_5m_schedule, prices_latest_schedule, daily_schedule],
 )

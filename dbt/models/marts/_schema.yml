@@ -49,7 +49,7 @@ models:
       - name: price_updated_at
         description: "When the real-time price snapshot was loaded"
       - name: tax_gp
-        description: "GE tax on the sale: 2% of high_price capped at 5,000,000 gp; 0 when is_tax_exempt or high_price <= 50."
+        description: "GE tax on the sale: floor(2% of high_price) capped at 5,000,000 gp; 0 when is_tax_exempt or high_price < 50."
       - name: is_tax_exempt
         description: "Whether the item is intrinsically GE-tax-exempt (from dim_items)."
       - name: volume_per_hour

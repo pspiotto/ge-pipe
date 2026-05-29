@@ -67,11 +67,14 @@ priced as (
         liq.volume_per_hour,
         liq.avg_volume_per_hour_24h,
 
-        -- GE tax: 2% of the sale (high) price, capped at 5,000,000 gp.
-        -- Untaxed when the item is exempt (tools/bonds) or sells for <= 50 gp.
+        -- GE tax: 2% of the sale (high) price, FLOORED to match the in-game
+        -- round-down, capped at 5,000,000 gp. Untaxed when exempt or < 50 gp.
+        -- high_price::numeric / 50 == 2% exactly; avoids 0.02 binary-float drift
+        -- that can make floor(high_price * 0.02) land 1 gp low.
         case
-            when i.is_tax_exempt or cp.high_price <= 50 then 0
-            else least(round(cp.high_price * 0.02), 5000000)
+            when i.is_tax_exempt then 0
+            when cp.high_price < 50 then 0
+            else least(floor(cp.high_price::numeric / 50), 5000000)
         end                                                     as tax_gp
 
     from current_price cp

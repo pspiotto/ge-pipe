@@ -163,7 +163,7 @@ Query these. `dim_items` and `fct_prices` are tables; `agg_flip_opportunities` i
 | `agg_item_liquidity` | table | Per-item hourly liquidity (from `/1h`): `volume_per_hour`, rolling `avg_volume_per_hour_24h`. Refreshed hourly. |
 | `agg_flip_opportunities` | view | Current best flips: **real-time** (`/latest`) prices for the spread, gated on recent 5-minute volume. Now also carries `volume_per_hour`, `avg_volume_per_hour_24h`, and `est_hours_to_fill_limit` (time-to-fill). |
 
-**GE tax:** 2% of the sale (high) price, capped at 5,000,000 gp. Items are untaxed when intrinsically exempt (tools/bonds — see the `tax_exempt_items` seed) or when they sell for ≤ 50 gp. The exempt list is maintained in `dbt/seeds/tax_exempt_items.csv` — **verify it against the current [OSRS Wiki GE tax page](https://oldschool.runescape.wiki/w/Grand_Exchange#Tax)**, since exemptions can change with game updates.
+**GE tax:** `floor(2% of the sale (high) price)`, capped at 5,000,000 gp — floored to match the in-game round-down. Items are untaxed when intrinsically exempt (tools/bonds — see the `tax_exempt_items` seed) or when they sell for under 50 gp. The exempt list is maintained in `dbt/seeds/tax_exempt_items.csv` — **verify it against the current [OSRS Wiki GE tax page](https://oldschool.runescape.wiki/w/Grand_Exchange#Tax)**, since exemptions can change with game updates.
 
 ---
 

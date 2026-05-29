@@ -63,6 +63,10 @@ priced as (
         cp.loaded_at        as price_updated_at,
         rv.volume_timestamp,
 
+        -- Hourly liquidity (from /1h) for time-to-fill
+        liq.volume_per_hour,
+        liq.avg_volume_per_hour_24h,
+
         -- GE tax: 2% of the sale (high) price, capped at 5,000,000 gp.
         -- Untaxed when the item is exempt (tools/bonds) or sells for <= 50 gp.
         case
@@ -73,9 +77,10 @@ priced as (
     from current_price cp
     inner join {{ ref('dim_items') }} i using (item_id)
     left join recent_volume rv using (item_id)
+    left join {{ ref('agg_item_liquidity') }} liq using (item_id)
 )
 
--- Columns 1..N preserve the prior order; is_tax_exempt is appended last so
+-- Columns 1..15 preserve the original order; newer columns are appended last so
 -- existing downstream queries / column guards are unaffected.
 select
     item_id,
@@ -93,7 +98,13 @@ select
     tax_gp,
     spread_gp - tax_gp                              as profit_per_item,
     (spread_gp - tax_gp) * coalesce(buy_limit, 0)   as max_profit_per_limit,
-    is_tax_exempt
+    is_tax_exempt,
+    volume_per_hour,
+    avg_volume_per_hour_24h,
+    -- Estimated hours to trade through your full buy limit at the recent hourly
+    -- rate. Lower = fills faster. Null when buy_limit or volume is unknown/zero.
+    round(buy_limit::numeric / nullif(volume_per_hour, 0), 2)
+                                                    as est_hours_to_fill_limit
 from priced
 where spread_gp - tax_gp > 0           -- spread covers GE tax
   and coalesce(low_price_volume,  0) > 50   -- enough sell-side volume (last 5m)

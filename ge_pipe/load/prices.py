@@ -87,15 +87,16 @@ def load_prices_latest(payload: dict[str, Any]) -> int:
             return cur.rowcount
 
 
-def load_prices_5m(payload: dict[str, Any]) -> int:
-    """Insert 5-minute price records. Skips duplicates on (item_id, timestamp).
-    Returns number of rows attempted."""
+def _load_window_prices(table: str, payload: dict[str, Any]) -> int:
+    """Insert averaged-window price records (shared by /5m and /1h, which have an
+    identical shape). Skips duplicates on (item_id, timestamp). Returns rows
+    attempted."""
     data = payload.get("data", {})
     if not data:
         return 0
 
-    sql = """
-        INSERT INTO raw.prices_5m (
+    sql = f"""
+        INSERT INTO raw.{table} (
             item_id, avg_high_price, high_price_volume,
             avg_low_price, low_price_volume, timestamp, loaded_at
         )
@@ -126,3 +127,15 @@ def load_prices_5m(payload: dict[str, Any]) -> int:
         with conn.cursor() as cur:
             cur.executemany(sql, rows)
             return len(rows)
+
+
+def load_prices_5m(payload: dict[str, Any]) -> int:
+    """Insert 5-minute price records. Skips duplicates on (item_id, timestamp).
+    Returns number of rows attempted."""
+    return _load_window_prices("prices_5m", payload)
+
+
+def load_prices_1h(payload: dict[str, Any]) -> int:
+    """Insert 1-hour price records (source of hourly volume). Skips duplicates on
+    (item_id, timestamp). Returns number of rows attempted."""
+    return _load_window_prices("prices_1h", payload)

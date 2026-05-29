@@ -52,3 +52,23 @@ models:
         description: "GE tax on the sale: 2% of high_price capped at 5,000,000 gp; 0 when is_tax_exempt or high_price <= 50."
       - name: is_tax_exempt
         description: "Whether the item is intrinsically GE-tax-exempt (from dim_items)."
+      - name: volume_per_hour
+        description: "Units traded in the most recent completed hour (from agg_item_liquidity)."
+      - name: avg_volume_per_hour_24h
+        description: "Rolling average hourly volume over the trailing 24h."
+      - name: est_hours_to_fill_limit
+        description: "Estimated hours to trade through buy_limit at volume_per_hour. Lower = fills faster."
+
+  - name: agg_item_liquidity
+    description: >
+      Per-item hourly liquidity from the /1h volume feed. Grain: one row per item.
+      Refreshed hourly; read by agg_flip_opportunities for time-to-fill.
+    columns:
+      - name: item_id
+        tests: [not_null, unique]
+      - name: volume_per_hour
+        description: "Units traded in the most recent completed hour (high + low side)."
+      - name: avg_volume_per_hour_24h
+        description: "Rolling average hourly volume over the trailing 24h."
+      - name: hours_observed_24h
+        description: "Number of hourly buckets backing the 24h average (warm-up indicator, ramps to 24)."

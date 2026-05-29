@@ -23,6 +23,12 @@ models:
       # errors and the next scheduled tick retries.
       +pre-hook: "set local lock_timeout = '30s'"
 
+seeds:
+  ge_pipe:
+    tax_exempt_items:
+      +column_types:
+        item_id: integer
+
 tests:
   ge_pipe:
     assert_price_high_gte_low:

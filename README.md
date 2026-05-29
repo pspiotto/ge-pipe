@@ -155,9 +155,11 @@ Query these. `dim_items` and `fct_prices` are tables; `agg_flip_opportunities` i
 
 | Model | Materialization | Description |
 |-------|-----------------|-------------|
-| `dim_items` | table | Item dimension — name, members flag, alch values, buy limit |
+| `dim_items` | table | Item dimension — name, members flag, alch values, buy limit, `is_tax_exempt` |
 | `fct_prices` | table | Star schema fact — 5-minute price snapshots joined to dim_items |
 | `agg_flip_opportunities` | view | Current best flips: **real-time** (`/latest`) prices for the spread, gated on recent 5-minute volume. Spread > GE tax, sufficient volume on both sides. |
+
+**GE tax:** 2% of the sale (high) price, capped at 5,000,000 gp. Items are untaxed when intrinsically exempt (tools/bonds — see the `tax_exempt_items` seed) or when they sell for ≤ 50 gp. The exempt list is maintained in `dbt/seeds/tax_exempt_items.csv` — **verify it against the current [OSRS Wiki GE tax page](https://oldschool.runescape.wiki/w/Grand_Exchange#Tax)**, since exemptions can change with game updates.
 
 ---
 

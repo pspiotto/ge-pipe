@@ -1,2 +1,11 @@
+# Serialize runs so the every-minute prices_latest_job and the every-5-minute
+# prices_5m_job never rebuild the shared agg_flip_opportunities mart at the same
+# time (concurrent dbt builds of the same table would conflict).
+run_coordinator:
+  module: dagster.core.run_coordinator
+  class: QueuedRunCoordinator
+  config:
+    max_concurrent_runs: 1
+
 telemetry:
   enabled: false

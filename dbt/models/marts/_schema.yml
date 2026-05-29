@@ -58,6 +58,10 @@ models:
         description: "Rolling average hourly volume over the trailing 24h."
       - name: est_hours_to_fill_limit
         description: "Estimated hours to trade through buy_limit at volume_per_hour. Lower = fills faster."
+      - name: mid_volatility_1h
+        description: "Sample stddev of mid price over the trailing 1h (gp). Avellaneda spread-sizing input."
+      - name: mid_volatility_pct_1h
+        description: "mid_volatility_1h as % of mean mid — scale-free risk filter across price tiers."
 
   - name: agg_item_liquidity
     description: >
@@ -72,6 +76,21 @@ models:
         description: "Rolling average hourly volume over the trailing 24h."
       - name: hours_observed_24h
         description: "Number of hourly buckets backing the 24h average (warm-up indicator, ramps to 24)."
+
+  - name: agg_item_volatility
+    description: >
+      Per-item short-horizon price volatility from the 5-minute history. Grain:
+      one row per item. Refreshed by the 5-minute job; read by
+      agg_flip_opportunities for spread-sizing and risk filtering.
+    columns:
+      - name: item_id
+        tests: [not_null, unique]
+      - name: mid_volatility_1h
+        description: "Sample stddev of mid = (high+low)/2 over the trailing 1h (gp). Null until >= 2 snapshots."
+      - name: mid_volatility_pct_1h
+        description: "Volatility as % of mean mid (coefficient of variation) — scale-free."
+      - name: snapshots_used_1h
+        description: "Number of 5-minute snapshots in the window (warm-up indicator)."
 
   - name: realized_fills
     description: >

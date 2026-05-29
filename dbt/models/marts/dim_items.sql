@@ -18,7 +18,7 @@ select
     stg.icon,
 
     -- Intrinsic GE tax exemption (tools, bonds) from the maintained seed list.
-    -- The separate "<= 50 gp sales are untaxed" rule is price-dependent and is
+    -- The separate "< 50 gp sales are untaxed" rule is price-dependent and is
     -- applied in agg_flip_opportunities, not here.
     (te.item_id is not null) as is_tax_exempt,
 

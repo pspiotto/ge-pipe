@@ -49,3 +49,21 @@ sources:
             tests: [not_null]
           - name: timestamp
             tests: [not_null]
+
+      - name: realized_fills
+        description: "Trade fill/cancel events written directly by the bot (append-only, one row per event). The feedback loop. No freshness check — fills are event-driven and sporadic."
+        columns:
+          - name: flip_id
+            tests: [not_null]
+          - name: item_id
+            tests: [not_null]
+          - name: leg
+            tests:
+              - not_null
+              - accepted_values:
+                  values: ['buy', 'sell']
+          - name: event
+            tests:
+              - not_null
+              - accepted_values:
+                  values: ['filled', 'partial', 'cancelled_deadline', 'cancelled_pricemove']

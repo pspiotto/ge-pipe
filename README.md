@@ -18,8 +18,8 @@ OSRS Wiki API
      │  /1h      (hourly — liquidity)
      │  /latest  (every 1 min — real-time prices)
      ▼
-Python Extractors ──► PostgreSQL (raw schema)
-                              │
+Python Extractors ──► PostgreSQL (raw schema) ◄── Bot writes realized_fills
+                              │                     (feedback loop)
                          dbt build
                               │
                     ┌─────────┴──────────┐
@@ -142,6 +142,7 @@ Loaded directly by Python — no transforms, no opinions.
 | `prices_5m` | `/5m` | 1 row per item per 5-min window | Every 5 minutes |
 | `prices_1h` | `/1h` | 1 row per item per 1-hour window | Hourly |
 | `prices_latest` | `/latest` | 1 row per item per price change | Every 1 minute (appended on change) |
+| `realized_fills` | the bot | 1 row per fill/cancel event | Written by the bot (append-only) |
 
 ### Staging (`stg` schema)
 
@@ -151,6 +152,7 @@ Views over raw — type-cast, renamed, lightly cleaned. No business logic.
 - `stg_prices_5m` — adds `spread_gp`, `spread_pct` derived columns; drops fully-null rows
 - `stg_prices_latest` — same derived columns over the real-time `/latest` feed
 - `stg_prices_1h` — adds `total_volume` (high + low) over the hourly `/1h` feed
+- `stg_realized_fills` — adds `fill_ratio`, `slippage_gp`, `time_to_fill_seconds`, and `is_filled`/`is_cancelled` flags over the bot's fill events
 
 ### Marts (`marts` schema)
 
@@ -162,8 +164,17 @@ Query these. `dim_items` and `fct_prices` are tables; `agg_flip_opportunities` i
 | `fct_prices` | table | Star schema fact — 5-minute price snapshots joined to dim_items |
 | `agg_item_liquidity` | table | Per-item hourly liquidity (from `/1h`): `volume_per_hour`, rolling `avg_volume_per_hour_24h`. Refreshed hourly. |
 | `agg_flip_opportunities` | view | Current best flips: **real-time** (`/latest`) prices for the spread, gated on recent 5-minute volume. Now also carries `volume_per_hour`, `avg_volume_per_hour_24h`, and `est_hours_to_fill_limit` (time-to-fill). |
+| `realized_fills` | view | **Feedback loop** — bot trade outcomes (one row per fill/cancel), enriched with `item_name`, `fill_ratio`, `slippage_gp`, and `time_to_fill_hours` (directly comparable to `est_hours_to_fill_limit`). |
 
 **GE tax:** `floor(2% of the sale (high) price)`, capped at 5,000,000 gp — floored to match the in-game round-down. Items are untaxed when intrinsically exempt (tools/bonds — see the `tax_exempt_items` seed) or when they sell for under 50 gp. The exempt list is maintained in `dbt/seeds/tax_exempt_items.csv` — **verify it against the current [OSRS Wiki GE tax page](https://oldschool.runescape.wiki/w/Grand_Exchange#Tax)**, since exemptions can change with game updates.
+
+### Feedback loop (`realized_fills`)
+
+The bot closes the loop by writing its trade outcomes back into `raw.realized_fills`, which `dbt` models into `marts.realized_fills`. This makes realized-vs-predicted profit, actual vs estimated fill time, slippage, and fill/cancel rates by cadence all queryable.
+
+**Write contract:** the bot appends one row per fill/cancel event over a **separate, short-lived autocommit connection**, kept entirely off its read path (which is `setReadOnly(true)`), so fill-writes can never lock or stall opportunity fetches. `event_id` and `recorded_at` are assigned by the DB; the bot supplies the rest. `leg` ∈ {`buy`,`sell`}; `event` ∈ {`filled`,`partial`,`cancelled_deadline`,`cancelled_pricemove`} (validated by dbt `accepted_values` tests, not a DB `CHECK`, so a stray value surfaces as a failing test rather than a rejected write). See `init_db/004_create_realized_fills.sql` for the full field→source mapping.
+
+> No new schedule — `realized_fills` is a view, so it reflects the bot's writes immediately and is kept in sync by the daily `dbt build`.
 
 ---
 

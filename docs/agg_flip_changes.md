@@ -58,6 +58,23 @@ Twisted bow → `tax_gp = 5,000,000`).
 `high_price_volume`, `low_price_volume`, `mid_volatility_1h`,
 `mid_volatility_pct_1h`, `price_updated_at` (price freshness), `buy_limit`.
 
+## Stale / phantom-spread screen (`is_stale`, `price_age_minutes`)
+
+Because the mart no longer pre-filters for liquidity, a near-zero-volume item can
+carry a **stale or outlier print** (e.g. an hours-old last-traded high) that looks
+like a fat margin but isn't real. Two columns screen these out:
+
+| Column | Type | Meaning |
+|--------|------|---------|
+| `is_stale` | boolean | `spread_pct > 50` **and** `volume_per_hour < 5` (both tunable server-side via the `stale_spread_pct` / `stale_volume_floor` dbt vars). A wide spread not backed by real trading is almost always stale. **A flag, not an exclusion** — the row still appears, so the legit low-volume high-value lane is untouched. |
+| `price_age_minutes` | numeric | Minutes since the **staler** of the two `/latest` prints (`high_time`/`low_time`). High age ⇒ at least one leg of the spread is old. Layer your own freshness rule with it (e.g. skip a thin item if `price_age_minutes > 120`). |
+
+Recommended: **skip or heavily down-weight `is_stale` rows**, then apply your
+lane-specific liquidity rules to the rest. `is_stale` deliberately targets only the
+egregious "wide spread + ~no volume" case (e.g. `Asgarnian ale(m)`, `spread_pct
+~870%`, `volume_per_hour 2`); a wide spread **with** real volume is a legit
+opportunity and is *not* flagged.
+
 ## Gotcha (not a bug)
 
 An item with good volume can still be **absent** if its current spread is below

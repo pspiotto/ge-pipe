@@ -6,8 +6,13 @@
 --
 -- Hybrid freshness: current prices come from the real-time /latest feed
 -- (refreshed every minute), while trade *volume* comes from the most recent
--- 5-minute window (/5m is the only endpoint that reports volume). This keeps
--- the spread minute-fresh while still gating on real liquidity.
+-- 5-minute window (/5m is the only endpoint that reports volume).
+--
+-- Liquidity gating is deliberately LOOSE here: we surface every price tier
+-- (including low-volume, high-value gear) as long as it traded at least once in
+-- the last hour and the after-tax spread is positive. Per-lane liquidity rules
+-- are the consumer's job — it has volume_per_hour, the 5m volumes,
+-- est_hours_to_fill_limit, and the is_high_value flag to decide with.
 --
 -- Materialized as a VIEW: it's rebuilt every minute and read continuously by
 -- downstream consumers. A table rebuild would need an ACCESS EXCLUSIVE lock each
@@ -71,6 +76,11 @@ priced as (
         vol.mid_volatility_1h,
         vol.mid_volatility_pct_1h,
 
+        -- High-value lane flag: expensive, typically low-volume gear the bot
+        -- should treat separately (different liquidity expectations).
+        (cp.high_price >= {{ var('high_value_threshold_gp', 1000000) }})
+                                                                as is_high_value,
+
         -- GE tax: 2% of the sale (high) price, FLOORED to match the in-game
         -- round-down, capped at 5,000,000 gp. Untaxed when exempt or < 50 gp.
         -- high_price::numeric / 50 == 2% exactly; avoids 0.02 binary-float drift
@@ -114,10 +124,11 @@ select
     round(buy_limit::numeric / nullif(volume_per_hour, 0), 2)
                                                     as est_hours_to_fill_limit,
     mid_volatility_1h,
-    mid_volatility_pct_1h
+    mid_volatility_pct_1h,
+    is_high_value
 from priced
-where spread_gp - tax_gp > 0           -- spread covers GE tax
-  and coalesce(low_price_volume,  0) > 50   -- enough sell-side volume (last 5m)
-  and coalesce(high_price_volume, 0) > 50   -- enough buy-side volume (last 5m)
-  and low_price > 100                        -- skip items worth less than 100 gp
+where spread_gp - tax_gp > 0                 -- spread covers GE tax
+  and low_price > 100                        -- skip sub-100gp junk (any tier above is fine)
+  and coalesce(volume_per_hour, 0) > 0       -- traded at least once in the last hour
+                                             -- (price-agnostic floor; bot gates the rest)
 order by max_profit_per_limit desc nulls last

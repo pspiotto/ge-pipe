@@ -62,6 +62,8 @@ models:
         description: "Sample stddev of mid price over the trailing 1h (gp). Avellaneda spread-sizing input."
       - name: mid_volatility_pct_1h
         description: "mid_volatility_1h as % of mean mid — scale-free risk filter across price tiers."
+      - name: is_high_value
+        description: "high_price >= var high_value_threshold_gp (default 1,000,000). Marks expensive, typically low-volume gear for the bot's separate lane."
 
   - name: agg_item_liquidity
     description: >

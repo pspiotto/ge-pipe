@@ -4,6 +4,11 @@ config-version: 2
 
 profile: ge_pipe
 
+vars:
+  # agg_flip_opportunities.is_high_value = high_price >= this. Flags expensive,
+  # typically low-volume gear so the bot can treat it as a separate lane.
+  high_value_threshold_gp: 1000000
+
 model-paths: ["models"]
 test-paths: ["tests"]
 macro-paths: ["macros"]

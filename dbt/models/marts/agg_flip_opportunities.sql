@@ -10,9 +10,10 @@
 --
 -- Liquidity gating is deliberately LOOSE here: we surface every price tier
 -- (including low-volume, high-value gear) as long as it traded at least once in
--- the last hour and the after-tax spread is positive. Per-lane liquidity rules
--- are the consumer's job — it has volume_per_hour, the 5m volumes,
--- est_hours_to_fill_limit, and the is_high_value flag to decide with.
+-- the last hour and the after-tax spread is positive. Per-lane liquidity and
+-- quality rules are the consumer's job — it has volume_per_hour, the 5m volumes,
+-- est_hours_to_fill_limit, is_high_value, plus is_stale / price_age_minutes to
+-- screen out stale/phantom-spread quotes on near-zero-volume items.
 --
 -- Materialized as a VIEW: it's rebuilt every minute and read continuously by
 -- downstream consumers. A table rebuild would need an ACCESS EXCLUSIVE lock each
@@ -81,6 +82,20 @@ priced as (
         (cp.high_price >= {{ var('high_value_threshold_gp', 1000000) }})
                                                                 as is_high_value,
 
+        -- Age (minutes) of the STALER of the two /latest prints. A flip needs a
+        -- current buy AND sell; if either leg's last trade is old, the spread is
+        -- suspect. least() returns the earlier (older) timestamp; nulls ignored.
+        round(extract(epoch from (now() - least(cp.high_time, cp.low_time))) / 60.0, 1)
+                                                                as price_age_minutes,
+
+        -- Stale/phantom-spread flag (a FLAG, not an exclusion — the consumer
+        -- decides, so the legit low-volume high-value lane stays intact). A wide
+        -- spread on an item that barely trades is almost always a stale or outlier
+        -- print (e.g. an hours-old last-traded high), not live two-sided interest.
+        (cp.spread_pct > {{ var('stale_spread_pct', 50) }}
+         and coalesce(liq.volume_per_hour, 0) < {{ var('stale_volume_floor', 5) }})
+                                                                as is_stale,
+
         -- GE tax: 2% of the sale (high) price, FLOORED to match the in-game
         -- round-down, capped at 5,000,000 gp. Untaxed when exempt or < 50 gp.
         -- high_price::numeric / 50 == 2% exactly; avoids 0.02 binary-float drift
@@ -125,7 +140,9 @@ select
                                                     as est_hours_to_fill_limit,
     mid_volatility_1h,
     mid_volatility_pct_1h,
-    is_high_value
+    is_high_value,
+    price_age_minutes,
+    is_stale
 from priced
 where spread_gp - tax_gp > 0                 -- spread covers GE tax
   and low_price > 100                        -- skip sub-100gp junk (any tier above is fine)

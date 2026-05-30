@@ -64,6 +64,10 @@ models:
         description: "mid_volatility_1h as % of mean mid — scale-free risk filter across price tiers."
       - name: is_high_value
         description: "high_price >= var high_value_threshold_gp (default 1,000,000). Marks expensive, typically low-volume gear for the bot's separate lane."
+      - name: price_age_minutes
+        description: "Minutes since the staler of the two /latest prints (high_time/low_time). High age = at least one leg of the spread is old."
+      - name: is_stale
+        description: "spread_pct > var stale_spread_pct (50) AND volume_per_hour < var stale_volume_floor (5). Flags wide spreads not backed by real trading (stale/outlier prints) — a flag, not an exclusion."
 
   - name: agg_item_liquidity
     description: >

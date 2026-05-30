@@ -38,6 +38,10 @@ seeds:
     tax_exempt_items:
       +column_types:
         item_id: integer
+    buy_limit_overrides:
+      +column_types:
+        item_id: integer
+        buy_limit: integer
 
 tests:
   ge_pipe:

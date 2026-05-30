@@ -160,7 +160,7 @@ Query these. `dim_items` and `fct_prices` are tables; `agg_flip_opportunities` i
 
 | Model | Materialization | Description |
 |-------|-----------------|-------------|
-| `dim_items` | table | Item dimension — name, members flag, alch values, buy limit, `is_tax_exempt` |
+| `dim_items` | table | Item dimension — name, members flag, alch values, buy limit (with `/mapping` corrections from the `buy_limit_overrides` seed, e.g. Old School Bond = 1), `is_tax_exempt` |
 | `fct_prices` | table | Star schema fact — 5-minute price snapshots joined to dim_items |
 | `agg_item_liquidity` | table | Per-item hourly liquidity (from `/1h`): `volume_per_hour`, rolling `avg_volume_per_hour_24h`. Refreshed hourly. |
 | `agg_item_volatility` | table | Per-item short-horizon volatility (from 5m history): `mid_volatility_1h` (stddev of mid, gp) + scale-free `mid_volatility_pct_1h`. Refreshed every 5 min. |

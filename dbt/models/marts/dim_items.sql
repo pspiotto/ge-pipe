@@ -4,6 +4,11 @@ with stg as (
 
 tax_exempt as (
     select item_id from {{ ref('tax_exempt_items') }}
+),
+
+buy_limit_overrides as (
+    select item_id, buy_limit as override_buy_limit
+    from {{ ref('buy_limit_overrides') }}
 )
 
 select
@@ -13,7 +18,12 @@ select
     stg.is_members,
     stg.low_alch_value,
     stg.high_alch_value,
-    stg.buy_limit,
+
+    -- /mapping's `limit` is wrong for a few GE-special items (e.g. Old School Bond
+    -- is 1-per-offer but reported as 100). Apply maintained overrides; otherwise
+    -- use the API value.
+    coalesce(blo.override_buy_limit, stg.buy_limit) as buy_limit,
+
     stg.shop_value,
     stg.icon,
 
@@ -25,3 +35,4 @@ select
     stg.loaded_at           as last_refreshed_at
 from stg
 left join tax_exempt te using (item_id)
+left join buy_limit_overrides blo using (item_id)
